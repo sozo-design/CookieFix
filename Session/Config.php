@@ -1,20 +1,17 @@
 <?php
+
 namespace Veriteworks\CookieFix\Session;
 
 use Magento\Framework\Session\Config as BaseConfig;
 
-/**
- * Class Config
- * @package Veriteworks\CookieFix\Session
- */
 class Config extends BaseConfig
 {
-
     /**
      * Set session.cookie_path
      *
-     * @param string $cookiePath
+     * @param string      $cookiePath
      * @param string|null $default
+     *
      * @return \Magento\Framework\Session\Config
      */
     public function setCookiePath($cookiePath, $default = null)

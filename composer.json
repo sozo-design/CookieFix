@@ -1,24 +1,25 @@
 {
-    "name":"veriteworks/cookiefix",
-    "type":"magento2-module",
+    "name": "veriteworks/cookiefix",
+    "type": "magento2-module",
     "license": [
         "OSL-3.0",
         "AFL-3.0"
     ],
-    "description":"Magento2 extension for Cookie SameSite attribute.",
-    "version":"2.2.0",
-    "authors":[
+    "description": "Magento2 extension for Cookie SameSite attribute.",
+    "version": "2.2.0",
+    "authors": [
         {
-            "name":"Hirokazu Nishi",
-            "email":"nishi@veriteworks.co.jp",
-            "homepage":"https://principle-works.jp/",
-            "role":"developer"
+            "name": "Hirokazu Nishi",
+            "email": "nishi@veriteworks.co.jp",
+            "homepage": "https://principle-works.jp/",
+            "role": "developer"
         }
     ],
     "require": {
         "php": "~7.2.0||~7.3.0||~7.4.0",
         "magento/framework": "~102.0.5||~103.0.0",
-        "lib-libxml": "*"
+        "lib-libxml": "*",
+        "ext-pcre": "*"
     },
     "autoload": {
         "files": [

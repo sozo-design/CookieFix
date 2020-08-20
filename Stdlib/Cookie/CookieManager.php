@@ -1,7 +1,9 @@
 <?php
+
 namespace Veriteworks\CookieFix\Stdlib\Cookie;
 
 use Magento\Framework\Exception\InputException;
+use Magento\Framework\HTTP\Header as HttpHeader;
 use Magento\Framework\Phrase;
 use Magento\Framework\Stdlib\Cookie\CookieMetadata;
 use Magento\Framework\Stdlib\Cookie\CookieReaderInterface;
@@ -9,15 +11,12 @@ use Magento\Framework\Stdlib\Cookie\CookieScopeInterface;
 use Magento\Framework\Stdlib\Cookie\CookieSizeLimitReachedException;
 use Magento\Framework\Stdlib\Cookie\FailureToSendException;
 use Magento\Framework\Stdlib\Cookie\PhpCookieManager;
-
-use Magento\Framework\App\ObjectManager;
 use Magento\Framework\Stdlib\Cookie\PublicCookieMetadata;
 use Magento\Framework\Stdlib\Cookie\SensitiveCookieMetadata;
 use Magento\Framework\Stdlib\CookieManagerInterface;
-use Magento\Framework\HTTP\Header as HttpHeader;
 use Psr\Log\LoggerInterface;
-use Veriteworks\CookieFix\Validator\SameSite;
 use Veriteworks\CookieFix\Rewrite\Stdlib\Cookie\PublicCookieMetadata as ExtendPulicCookieMetadata;
+use Veriteworks\CookieFix\Validator\SameSite;
 
 /**
  * CookieManager helps manage the setting, retrieving and deleting of cookies.
@@ -82,11 +81,11 @@ class CookieManager implements CookieManagerInterface
     private $validator;
 
     /**
-     * @param CookieScopeInterface $scope
+     * @param CookieScopeInterface  $scope
      * @param CookieReaderInterface $reader
-     * @param SameSite $validator
-     * @param LoggerInterface $logger
-     * @param HttpHeader $httpHeader
+     * @param SameSite              $validator
+     * @param LoggerInterface       $logger
+     * @param HttpHeader            $httpHeader
      */
     public function __construct(
         CookieScopeInterface $scope,
@@ -107,9 +106,10 @@ class CookieManager implements CookieManagerInterface
      *
      * Sensitive cookies cannot be accessed by JS. HttpOnly will always be set to true for these cookies.
      *
-     * @param string $name
-     * @param string $value
+     * @param string                  $name
+     * @param string                  $value
      * @param SensitiveCookieMetadata $metadata
+     *
      * @return void
      * @throws FailureToSendException Cookie couldn't be sent to the browser.  If this exception isn't thrown,
      * there is still no guarantee that the browser received and accepted the cookie.
@@ -123,31 +123,12 @@ class CookieManager implements CookieManagerInterface
     }
 
     /**
-     * Set a value in a public cookie with the given $name $value pairing.
-     *
-     * Public cookies can be accessed by JS. HttpOnly will be set to false by default for these cookies,
-     * but can be changed to true.
-     *
-     * @param string $name
-     * @param string $value
-     * @param PublicCookieMetadata $metadata
-     * @return void
-     * @throws FailureToSendException If cookie couldn't be sent to the browser.
-     * @throws CookieSizeLimitReachedException Thrown when the cookie is too big to store any additional data.
-     * @throws InputException If the cookie name is empty or contains invalid characters.
-     */
-    public function setPublicCookie($name, $value, PublicCookieMetadata $metadata = null)
-    {
-        $metadataArray = $this->scope->getPublicCookieMetadata($metadata)->__toArray();
-        $this->setCookie($name, $value, $metadataArray);
-    }
-
-    /**
      * Set a value in a cookie with the given $name $value pairing.
      *
      * @param string $name
      * @param string $value
-     * @param array $metadataArray
+     * @param array  $metadataArray
+     *
      * @return void
      * @throws FailureToSendException If cookie couldn't be sent to the browser.
      * @throws CookieSizeLimitReachedException Thrown when the cookie is too big to store any additional data.
@@ -168,11 +149,14 @@ class CookieManager implements CookieManagerInterface
                 self::KEY_PATH => $this->extractValue(CookieMetadata::KEY_PATH, $metadataArray, ''),
                 self::KEY_DOMAIN => $this->extractValue(CookieMetadata::KEY_DOMAIN, $metadataArray, ''),
                 self::KEY_SECURE => $this->extractValue(CookieMetadata::KEY_SECURE, $metadataArray, true),
-                self::KEY_HTTP_ONLY => $this->extractValue(CookieMetadata::KEY_HTTP_ONLY, $metadataArray, false)
+                self::KEY_HTTP_ONLY => $this->extractValue(CookieMetadata::KEY_HTTP_ONLY, $metadataArray, false),
             ];
 
-	    if (array_key_exists(ExtendPulicCookieMetadata::KEY_SAMESITE, $metadataArray)) {
-                $options = array_merge($options, [self::KEY_SAME_SITE => $metadataArray[ExtendPulicCookieMetadata::KEY_SAMESITE]]);
+            if (array_key_exists(ExtendPulicCookieMetadata::KEY_SAMESITE, $metadataArray)) {
+                $options = array_merge(
+                    $options,
+                    [self::KEY_SAME_SITE => $metadataArray[ExtendPulicCookieMetadata::KEY_SAMESITE]]
+                );
             } elseif ($sameSite) {
                 $options = array_merge($options, [self::KEY_SAME_SITE => 'None']);
             }
@@ -183,7 +167,7 @@ class CookieManager implements CookieManagerInterface
                 $options
             );
         } else {
-	    $path = $this->extractValue(CookieMetadata::KEY_PATH, $metadataArray, '');
+            $path = $this->extractValue(CookieMetadata::KEY_PATH, $metadataArray, '');
             if (array_key_exists(ExtendPulicCookieMetadata::KEY_SAMESITE, $metadataArray)) {
                 $path .= '; SameSite=' . $metadataArray[ExtendPulicCookieMetadata::KEY_SAMESITE];
             } elseif ($sameSite) {
@@ -216,25 +200,36 @@ class CookieManager implements CookieManagerInterface
     }
 
     /**
-     * Retrieve the size of a cookie.
-     * The size of a cookie is determined by the length of 'name=value' portion of the cookie.
+     * Determines the expiration time of a cookie.
      *
-     * @param string $name
-     * @param string $value
-     * @return int
+     * @param array $metadataArray
+     *
+     * @return int in seconds since the Unix epoch.
      */
-    private function sizeOfCookie($name, $value)
+    private function computeExpirationTime(array $metadataArray)
     {
-        // The constant '1' is the length of the equal sign in 'name=value'.
-        return strlen($name) + 1 + strlen($value);
+        if (isset($metadataArray[PhpCookieManager::KEY_EXPIRE_TIME])
+            && $metadataArray[PhpCookieManager::KEY_EXPIRE_TIME] < time()
+        ) {
+            $expireTime = $metadataArray[PhpCookieManager::KEY_EXPIRE_TIME];
+        } else {
+            if (isset($metadataArray[CookieMetadata::KEY_DURATION])) {
+                $expireTime = $metadataArray[CookieMetadata::KEY_DURATION] + time();
+            } else {
+                $expireTime = PhpCookieManager::EXPIRE_AT_END_OF_SESSION_TIME;
+            }
+        }
+
+        return $expireTime;
     }
 
     /**
      * Determines whether or not it is possible to send the cookie, based on the number of cookies that already
      * exist and the size of the cookie.
      *
-     * @param string $name
+     * @param string      $name
      * @param string|null $value
+     *
      * @return void if it is possible to send the cookie
      * @throws CookieSizeLimitReachedException Thrown when the cookie is too big to store any additional data.
      * @throws InputException If the cookie name is empty or contains invalid characters.
@@ -278,35 +273,28 @@ class CookieManager implements CookieManagerInterface
     }
 
     /**
-     * Determines the expiration time of a cookie.
+     * Retrieve the size of a cookie.
+     * The size of a cookie is determined by the length of 'name=value' portion of the cookie.
      *
-     * @param array $metadataArray
-     * @return int in seconds since the Unix epoch.
+     * @param string $name
+     * @param string $value
+     *
+     * @return int
      */
-    private function computeExpirationTime(array $metadataArray)
+    private function sizeOfCookie($name, $value)
     {
-        if (isset($metadataArray[PhpCookieManager::KEY_EXPIRE_TIME])
-            && $metadataArray[PhpCookieManager::KEY_EXPIRE_TIME] < time()
-        ) {
-            $expireTime = $metadataArray[PhpCookieManager::KEY_EXPIRE_TIME];
-        } else {
-            if (isset($metadataArray[CookieMetadata::KEY_DURATION])) {
-                $expireTime = $metadataArray[CookieMetadata::KEY_DURATION] + time();
-            } else {
-                $expireTime = PhpCookieManager::EXPIRE_AT_END_OF_SESSION_TIME;
-            }
-        }
-
-        return $expireTime;
+        // The constant '1' is the length of the equal sign in 'name=value'.
+        return strlen($name) + 1 + strlen($value);
     }
 
     /**
      * Determines the value to be used as a $parameter.
      * If $metadataArray[$parameter] is not set, returns the $defaultValue.
      *
-     * @param string $parameter
-     * @param array $metadataArray
+     * @param string                  $parameter
+     * @param array                   $metadataArray
      * @param string|boolean|int|null $defaultValue
+     *
      * @return string|boolean|int|null
      */
     private function extractValue($parameter, array $metadataArray, $defaultValue)
@@ -319,10 +307,32 @@ class CookieManager implements CookieManagerInterface
     }
 
     /**
+     * Set a value in a public cookie with the given $name $value pairing.
+     *
+     * Public cookies can be accessed by JS. HttpOnly will be set to false by default for these cookies,
+     * but can be changed to true.
+     *
+     * @param string               $name
+     * @param string               $value
+     * @param PublicCookieMetadata $metadata
+     *
+     * @return void
+     * @throws FailureToSendException If cookie couldn't be sent to the browser.
+     * @throws CookieSizeLimitReachedException Thrown when the cookie is too big to store any additional data.
+     * @throws InputException If the cookie name is empty or contains invalid characters.
+     */
+    public function setPublicCookie($name, $value, PublicCookieMetadata $metadata = null)
+    {
+        $metadataArray = $this->scope->getPublicCookieMetadata($metadata)->__toArray();
+        $this->setCookie($name, $value, $metadataArray);
+    }
+
+    /**
      * Retrieve a value from a cookie.
      *
-     * @param string $name
+     * @param string      $name
      * @param string|null $default The default value to return if no value could be found for the given $name.
+     *
      * @return string|null
      */
     public function getCookie($name, $default = null)
@@ -333,8 +343,9 @@ class CookieManager implements CookieManagerInterface
     /**
      * Deletes a cookie with the given name.
      *
-     * @param string $name
+     * @param string         $name
      * @param CookieMetadata $metadata
+     *
      * @return void
      * @throws FailureToSendException If cookie couldn't be sent to the browser.
      *     If this exception isn't thrown, there is still no guarantee that the browser

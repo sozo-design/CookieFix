@@ -11,6 +11,10 @@ This extension set SameSite=None and make customers place order via 3DS payment 
  + composer require veriteworks/cookiefix
  + bin/magento module:enable Veriteworks_CookieFix
  + bin/magento setup:upgrade
+ 
+# Usage
+
+This plugin only sets the SameSite=None when the sites Base URL and Secure Base URL are the same (https).
 
 # Support
 
